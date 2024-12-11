@@ -1,6 +1,7 @@
 name: Start WeSQL Cluster
 
 on:
+  push:
   pull_request:
   workflow_dispatch:
 
@@ -89,9 +90,12 @@ jobs:
           fi
           echo "$TUNNEL_LINE"
           HOST="serveo.net"
-          PORT=$(echo "$TUNNEL_LINE" | grep -oE '[0-9]+$' || true)
+          # 去除可能的回车和末尾空白后提取端口
+          PORT=$(echo "$TUNNEL_LINE" | tr -d '\r' | sed 's/[[:space:]]*$//' | grep -oE '[0-9]+$' || true)
           if [ -z "$PORT" ]; then
             echo "No port found in TUNNEL_LINE"
+            echo "Debug line (od):"
+            echo "$TUNNEL_LINE" | od -c
             exit 1
           fi
           echo "MySQL Public Access:"
