@@ -73,42 +73,73 @@ jobs:
           done
           echo "MySQL port 3306 is ready!"
 
-      - name: Setup SSH tunnel via serveo
-        run: |
-          # 使用 serveo 将本地 3306 随机映射到外网
-          # -R 0:localhost:3306 表示在 serveo 上随机分配端口对外服务
-          nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3306 serveo.net > serveo.log 2>&1 &
-          sleep 5
-          echo "Serveo log output:"
-          cat serveo.log || true
-
-      - name: Print Serveo Tunnel
-        run: |
-          TUNNEL_LINE=$(grep 'Forwarding TCP' serveo.log || true)
-          if [ -z "$TUNNEL_LINE" ]; then
-            echo "No forwarding line found in serveo.log"
-            exit 1
-          fi
-          echo "$TUNNEL_LINE"
-          HOST="serveo.net"
-          # 去除可能的回车和末尾空白后提取端口
-          PORT=$(echo "$TUNNEL_LINE" | tr -d '\r' | sed 's/[[:space:]]*$//' | grep -oE '[0-9]+$' || true)
-          if [ -z "$PORT" ]; then
-            echo "No port found in TUNNEL_LINE"
-            echo "Debug line (od):"
-            echo "$TUNNEL_LINE" | od -c
-            exit 1
-          fi
-          echo "MySQL Public Access:"
-          echo "Host: $HOST"
-          echo "Port: $PORT"
-          echo "Connect: mysql -h $HOST -P $PORT -u root -ppasswd"
-          echo "Password: passwd"
+#      - name: Setup SSH tunnel via serveo
+#        run: |
+#          # 使用 serveo 将本地 3306 随机映射到外网
+#          # -R 0:localhost:3306 表示在 serveo 上随机分配端口对外服务
+#          nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3306 serveo.net > serveo.log 2>&1 &
+#          sleep 5
+#          echo "Serveo log output:"
+#          cat serveo.log || true
+#
+#      - name: Print Serveo Tunnel
+#        run: |
+#          TUNNEL_LINE=$(grep 'Forwarding TCP' serveo.log || true)
+#          if [ -z "$TUNNEL_LINE" ]; then
+#            echo "No forwarding line found in serveo.log"
+#            exit 1
+#          fi
+#          echo "$TUNNEL_LINE"
+#          HOST="serveo.net"
+#          # 去除可能的回车和末尾空白后提取端口
+#          PORT=$(echo "$TUNNEL_LINE" | tr -d '\r' | sed 's/[[:space:]]*$//' | grep -oE '[0-9]+$' || true)
+#          if [ -z "$PORT" ]; then
+#            echo "No port found in TUNNEL_LINE"
+#            echo "Debug line (od):"
+#            echo "$TUNNEL_LINE" | od -c
+#            exit 1
+#          fi
+#          echo "MySQL Public Access:"
+#          echo "Host: $HOST"
+#          echo "Port: $PORT"
+#          echo "Connect: mysql -h $HOST -P $PORT -u root -ppasswd"
+#          echo "Password: passwd"
 
       - name: Keep session running
         run: |
           echo "Press Ctrl+C or cancel the workflow run when done testing."
           tail -f /dev/null
+
+      - name: Install and Start ngrok
+        run: |
+          # 安装ngrok
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /usr/share/keyrings/ngrok-archive-keyring.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt-get update && sudo apt-get install ngrok -y
+
+          # 配置ngrok token
+          ngrok config add-authtoken 2nauO5aVlhxpLxgPcgG92D5WKM8_6fqhSn1XogXRzChjvCBLz
+
+          # 后台启动ngrok tcp隧道
+          nohup ngrok tcp 3306 > ngrok.log 2>&1 &
+          sleep 5
+
+      - name: Print ngrok tunnel info
+        run: |
+          # 查看ngrok提供的隧道信息
+          curl -s http://127.0.0.1:4040/api/tunnels > tunnels.json
+          cat tunnels.json
+          # 提取 public_url（如 "tcp://0.tcp.ngrok.io:xxxxx"）
+          TUNNEL_URL=$(jq -r '.tunnels[0].public_url' tunnels.json)
+          echo "Public MySQL Tunnel URL: $TUNNEL_URL"
+          # 分解为 host 和 port
+          HOST=$(echo $TUNNEL_URL | sed 's|tcp://||' | cut -d':' -f1)
+          PORT=$(echo $TUNNEL_URL | sed 's|tcp://||' | cut -d':' -f2)
+          echo "MySQL Public Access:"
+          echo "Host: $HOST"
+          echo "Port: $PORT"
+          echo "Connect: mysql -h $HOST -P $PORT -u root -ppasswd"
+          echo "Password: passwd"
 
 #      - name: Clean up
 #        if: always()
