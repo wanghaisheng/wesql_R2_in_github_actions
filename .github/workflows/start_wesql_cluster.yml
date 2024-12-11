@@ -73,15 +73,15 @@ jobs:
 
       - name: Setup SSH tunnel via serveo
         run: |
-          # 使用serveo将本地3306暴露出来
-          # -R 0.0.0.0:3306:localhost:3306 表示在serveo随机端口对外
-          nohup ssh -o StrictHostKeyChecking=no -R 0.0.0.0:3306:localhost:3306 serveo.net > serveo.log 2>&1 &
+          # 使用 serveo 将本地 3306 随机映射到外网
+          # -R 0:localhost:3306 表示在 serveo 上随机分配端口对外服务
+          nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3306 serveo.net > serveo.log 2>&1 &
           sleep 5
+          echo "Serveo log output:"
           cat serveo.log || true
 
       - name: Print Serveo Tunnel
         run: |
-          # serveo日志中包含类似 "Forwarding TCP connections from serveo.net:12345"
           TUNNEL_LINE=$(grep 'Forwarding TCP' serveo.log)
           echo "$TUNNEL_LINE"
           HOST="serveo.net"
