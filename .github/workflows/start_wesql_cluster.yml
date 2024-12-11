@@ -2,8 +2,9 @@ name: Start WeSQL Cluster
 
 on:
   push:
-  pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "0 */4 * * *"
 
 concurrency:
   group: format('{0}-{1}', ${{ github.ref }}, 'Cluster (start_wesql_cluster)')
@@ -16,24 +17,24 @@ jobs:
     steps:
       - name: Configure AWS CLI
         run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws configure set default.region us-east-2
+          aws configure set aws_access_key_id ${{ secrets.WESQL_OBJECTSTORE_ACCESS_KEY }}
+          aws configure set aws_secret_access_key ${{ secrets.WESQL_OBJECTSTORE_SECRET_KEY }}
+          aws configure set default.region ${{ secrets.WESQL_OBJECTSTORE_REGION }}
 
-      - name: Create S3 Bucket
-        id: create_bucket
-        run: |
-          BUCKET_NAME="wescale-$(date +'%Y%m%d%H%M%S')"
-          echo "Bucket name: $BUCKET_NAME"
-          aws s3 mb s3://$BUCKET_NAME
-          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+#      - name: Create S3 Bucket
+#        id: create_bucket
+#        run: |
+#          BUCKET_NAME="wescale-$(date +'%Y%m%d%H%M%S')"
+#          echo "Bucket name: $BUCKET_NAME"
+#          aws s3 mb s3://$BUCKET_NAME
+#          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
 
       - name: Start WeSQL Server
         run: |
-          export WESQL_OBJECTSTORE_BUCKET=${{ steps.create_bucket.outputs.bucket_name }}
-          export WESQL_OBJECTSTORE_REGION=us-east-2
-          export WESQL_OBJECTSTORE_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY_ID }}
-          export WESQL_OBJECTSTORE_SECRET_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          export WESQL_OBJECTSTORE_BUCKET=${{ secrets.WESQL_OBJECTSTORE_BUCKET }}
+          export WESQL_OBJECTSTORE_REGION=${{ secrets.WESQL_OBJECTSTORE_REGION }}
+          export WESQL_OBJECTSTORE_ACCESS_KEY=${{ secrets.WESQL_OBJECTSTORE_ACCESS_KEY }}
+          export WESQL_OBJECTSTORE_SECRET_KEY=${{ secrets.WESQL_OBJECTSTORE_SECRET_KEY }}
 
           docker run -itd --network host --name wesql-server \
             -p 3306:3306 \
@@ -109,10 +110,10 @@ jobs:
           echo "Press Ctrl+C or cancel the workflow run when done testing."
           tail -f /dev/null
 
-      - name: Clean up
-        if: always()
-        run: |
-          docker stop wesql-server
-          echo "Deleting bucket: ${{ steps.create_bucket.outputs.bucket_name }}"
-          aws s3 rm s3://${{ steps.create_bucket.outputs.bucket_name }} --recursive
-          aws s3 rb s3://${{ steps.create_bucket.outputs.bucket_name }}
+#      - name: Clean up
+#        if: always()
+#        run: |
+#          docker stop wesql-server
+#          echo "Deleting bucket: ${{ steps.create_bucket.outputs.bucket_name }}"
+#          aws s3 rm s3://${{ steps.create_bucket.outputs.bucket_name }} --recursive
+#          aws s3 rb s3://${{ steps.create_bucket.outputs.bucket_name }}
