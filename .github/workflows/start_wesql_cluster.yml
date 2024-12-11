@@ -1,0 +1,106 @@
+name: Start WeSQL Cluster
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: format('{0}-{1}', ${{ github.ref }}, 'Cluster (start_wesql_cluster)')
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS CLI
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set default.region us-east-2
+
+      - name: Create S3 Bucket
+        id: create_bucket
+        run: |
+          BUCKET_NAME="wescale-$(date +'%Y%m%d%H%M%S')"
+          echo "Bucket name: $BUCKET_NAME"
+          aws s3 mb s3://$BUCKET_NAME
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+
+      - name: Start WeSQL Server
+        run: |
+          export WESQL_OBJECTSTORE_BUCKET=${{ steps.create_bucket.outputs.bucket_name }}
+          export WESQL_OBJECTSTORE_REGION=us-east-2
+          export WESQL_OBJECTSTORE_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY_ID }}
+          export WESQL_OBJECTSTORE_SECRET_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+          docker run -itd --network host --name wesql-server \
+            -p 3306:3306 \
+            -e MYSQL_CUSTOM_CONFIG="[mysqld]\n\
+            port=3306\n\
+            log-bin=binlog\n\
+            gtid_mode=ON\n\
+            enforce_gtid_consistency=ON\n\
+            log_slave_updates=ON\n\
+            binlog_format=ROW\n\
+            objectstore_provider='aws'\n\
+            repo_objectstore_id='tutorial'\n\
+            objectstore_bucket='${WESQL_OBJECTSTORE_BUCKET}'\n\
+            objectstore_region='${WESQL_OBJECTSTORE_REGION}'\n\
+            branch_objectstore_id='main'" \
+            -v ~/wesql-local-dir:/data/mysql \
+            -e WESQL_CLUSTER_MEMBER='127.0.0.1:13306' \
+            -e MYSQL_ROOT_PASSWORD=passwd \
+            -e WESQL_OBJECTSTORE_ACCESS_KEY=${WESQL_OBJECTSTORE_ACCESS_KEY} \
+            -e WESQL_OBJECTSTORE_SECRET_KEY=${WESQL_OBJECTSTORE_SECRET_KEY} \
+            apecloud/wesql-server:8.0.35-0.1.0_beta3.38
+
+      - name: Wait for MySQL ports
+        run: |
+          timeout=300  # 5 minutes timeout
+          start_time=$(date +%s)
+          while ! nc -z localhost 3306; do
+            current_time=$(date +%s)
+            elapsed=$((current_time - start_time))
+            if [ $elapsed -ge $timeout ]; then
+              echo "Timeout waiting for MySQL port 3306"
+              exit 1
+            fi
+            echo "Port 3306 not ready. Retrying in 5 seconds..."
+            sleep 5
+          done
+          echo "MySQL port 3306 is ready!"
+
+      - name: Setup SSH tunnel via serveo
+        run: |
+          # 使用serveo将本地3306暴露出来
+          # -R 0.0.0.0:3306:localhost:3306 表示在serveo随机端口对外
+          nohup ssh -o StrictHostKeyChecking=no -R 0.0.0.0:3306:localhost:3306 serveo.net > serveo.log 2>&1 &
+          sleep 5
+          cat serveo.log || true
+
+      - name: Print Serveo Tunnel
+        run: |
+          # serveo日志中包含类似 "Forwarding TCP connections from serveo.net:12345"
+          TUNNEL_LINE=$(grep 'Forwarding TCP' serveo.log)
+          echo "$TUNNEL_LINE"
+          HOST="serveo.net"
+          PORT=$(echo "$TUNNEL_LINE" | grep -oE '[0-9]+$')
+          echo "MySQL Public Access:"
+          echo "Host: $HOST"
+          echo "Port: $PORT"
+          echo "Connect: mysql -h $HOST -P $PORT -u root -p"
+          echo "Password: passwd"
+
+      - name: Keep session running
+        run: |
+          echo "Press Ctrl+C or cancel the workflow run when done testing."
+          tail -f /dev/null
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker stop wesql-server
+          echo "Deleting bucket: ${{ steps.create_bucket.outputs.bucket_name }}"
+          aws s3 rm s3://${{ steps.create_bucket.outputs.bucket_name }} --recursive
+          aws s3 rb s3://${{ steps.create_bucket.outputs.bucket_name }}
