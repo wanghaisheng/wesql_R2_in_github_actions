@@ -82,10 +82,18 @@ jobs:
 
       - name: Print Serveo Tunnel
         run: |
-          TUNNEL_LINE=$(grep 'Forwarding TCP' serveo.log)
+          TUNNEL_LINE=$(grep 'Forwarding TCP' serveo.log || true)
+          if [ -z "$TUNNEL_LINE" ]; then
+            echo "No forwarding line found in serveo.log"
+            exit 1
+          fi
           echo "$TUNNEL_LINE"
           HOST="serveo.net"
-          PORT=$(echo "$TUNNEL_LINE" | grep -oE '[0-9]+$')
+          PORT=$(echo "$TUNNEL_LINE" | grep -oE '[0-9]+$' || true)
+          if [ -z "$PORT" ]; then
+            echo "No port found in TUNNEL_LINE"
+            exit 1
+          fi
           echo "MySQL Public Access:"
           echo "Host: $HOST"
           echo "Port: $PORT"
