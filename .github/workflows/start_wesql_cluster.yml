@@ -102,7 +102,7 @@ jobs:
           echo "MySQL Public Access:"
           echo "Host: $HOST"
           echo "Port: $PORT"
-          echo "Connect: mysql -h $HOST -P $PORT -u root -p"
+          echo "Connect: mysql -h $HOST -P $PORT -u root -ppasswd"
           echo "Password: passwd"
 
       - name: Keep session running
