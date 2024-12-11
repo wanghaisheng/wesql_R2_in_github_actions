@@ -100,4 +100,4 @@ jobs:
       - name: Keep session running
         run: |
           echo "Press Ctrl+C or cancel the workflow run when done testing."
-          tail -f /dev/nulltputs.bucket_name }}
+          tail -f /dev/null
