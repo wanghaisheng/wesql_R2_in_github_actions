@@ -21,14 +21,6 @@ jobs:
           aws configure set aws_secret_access_key ${{ secrets.WESQL_OBJECTSTORE_SECRET_KEY }}
           aws configure set default.region ${{ secrets.WESQL_OBJECTSTORE_REGION }}
 
-#      - name: Create S3 Bucket
-#        id: create_bucket
-#        run: |
-#          BUCKET_NAME="wescale-$(date +'%Y%m%d%H%M%S')"
-#          echo "Bucket name: $BUCKET_NAME"
-#          aws s3 mb s3://$BUCKET_NAME
-#          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
-
       - name: Start WeSQL Server
         run: |
           export WESQL_OBJECTSTORE_BUCKET=${{ secrets.WESQL_OBJECTSTORE_BUCKET }}
@@ -73,73 +65,32 @@ jobs:
           done
           echo "MySQL port 3306 is ready!"
 
-#      - name: Setup SSH tunnel via serveo
-#        run: |
-#          # 使用 serveo 将本地 3306 随机映射到外网
-#          # -R 0:localhost:3306 表示在 serveo 上随机分配端口对外服务
-#          nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3306 serveo.net > serveo.log 2>&1 &
-#          sleep 5
-#          echo "Serveo log output:"
-#          cat serveo.log || true
-#
-#      - name: Print Serveo Tunnel
-#        run: |
-#          TUNNEL_LINE=$(grep 'Forwarding TCP' serveo.log || true)
-#          if [ -z "$TUNNEL_LINE" ]; then
-#            echo "No forwarding line found in serveo.log"
-#            exit 1
-#          fi
-#          echo "$TUNNEL_LINE"
-#          HOST="serveo.net"
-#          # 去除可能的回车和末尾空白后提取端口
-#          PORT=$(echo "$TUNNEL_LINE" | tr -d '\r' | sed 's/[[:space:]]*$//' | grep -oE '[0-9]+$' || true)
-#          if [ -z "$PORT" ]; then
-#            echo "No port found in TUNNEL_LINE"
-#            echo "Debug line (od):"
-#            echo "$TUNNEL_LINE" | od -c
-#            exit 1
-#          fi
-#          echo "MySQL Public Access:"
-#          echo "Host: $HOST"
-#          echo "Port: $PORT"
-#          echo "Connect: mysql -h $HOST -P $PORT -u root -ppasswd"
-#          echo "Password: passwd"
-
-      - name: Install and Start ngrok
+      - name: Setup SSH tunnel via serveo
         run: |
-          # 获取并转换ngrok公钥
-          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo gpg --dearmor -o /usr/share/keyrings/ngrok-archive-keyring.gpg
-          # 添加ngrok软件源，并使用signed-by指定keyring
-          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/ngrok-archive-keyring.gpg] https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-          # 更新并安装ngrok
-          sudo apt-get update && sudo apt-get install ngrok -y
-          
-          # 配置ngrok token
-          ngrok config add-authtoken 2nauO5aVlhxpLxgPcgG92D5WKM8_6fqhSn1XogXRzChjvCBLz
-          
-          # 后台启动ngrok tcp隧道
-          nohup ngrok tcp 3306 > ngrok.log 2>&1 &
+          # 使用 serveo 将本地 3306 随机映射到外网
+          # -R 0:localhost:3306 表示在 serveo 上随机分配端口对外服务
+          nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3306 serveo.net > serveo.log 2>&1 &
           sleep 5
+          echo "Serveo log output:"
+          cat serveo.log || true
 
-      - name: Print ngrok tunnel info
+      - name: Print Serveo Tunnel
         run: |
-          sudo apt-get update && sudo apt-get install -y jq
-          # 查看ngrok日志，确认启动正常
-          echo "Ngrok log:"
-          cat ngrok.log || true
-          
-          # 加长等待时间
-          sleep 10
-          
-          # 查看ngrok提供的隧道信息
-          curl -s http://127.0.0.1:4040/api/tunnels > tunnels.json
-          cat tunnels.json
-          
-          TUNNEL_URL=$(jq -r '.tunnels[0].public_url' tunnels.json)
-          echo "Public MySQL Tunnel URL: $TUNNEL_URL"
-          
-          HOST=$(echo $TUNNEL_URL | sed 's|tcp://||' | cut -d':' -f1)
-          PORT=$(echo $TUNNEL_URL | sed 's|tcp://||' | cut -d':' -f2)
+          TUNNEL_LINE=$(grep 'Forwarding TCP' serveo.log || true)
+          if [ -z "$TUNNEL_LINE" ]; then
+            echo "No forwarding line found in serveo.log"
+            exit 1
+          fi
+          echo "$TUNNEL_LINE"
+          HOST="serveo.net"
+          # 去除可能的回车和末尾空白后提取端口
+          PORT=$(echo "$TUNNEL_LINE" | tr -d '\r' | sed 's/[[:space:]]*$//' | grep -oE '[0-9]+$' || true)
+          if [ -z "$PORT" ]; then
+            echo "No port found in TUNNEL_LINE"
+            echo "Debug line (od):"
+            echo "$TUNNEL_LINE" | od -c
+            exit 1
+          fi
           echo "MySQL Public Access:"
           echo "Host: $HOST"
           echo "Port: $PORT"
@@ -149,12 +100,4 @@ jobs:
       - name: Keep session running
         run: |
           echo "Press Ctrl+C or cancel the workflow run when done testing."
-          tail -f /dev/null
-
-#      - name: Clean up
-#        if: always()
-#        run: |
-#          docker stop wesql-server
-#          echo "Deleting bucket: ${{ steps.create_bucket.outputs.bucket_name }}"
-#          aws s3 rm s3://${{ steps.create_bucket.outputs.bucket_name }} --recursive
-#          aws s3 rb s3://${{ steps.create_bucket.outputs.bucket_name }}
+          tail -f /dev/nulltputs.bucket_name }}
