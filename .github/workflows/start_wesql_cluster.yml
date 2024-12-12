@@ -95,7 +95,7 @@ jobs:
 
       - name: Write Connection Info to S3
         run: |
-          cat << EOF > connection.properties
+          cat << EOF > connection_info.txt
           host=$HOST
           port=$PORT
           username=root
@@ -103,8 +103,8 @@ jobs:
           mysql_cli=mysql -h $HOST -P $PORT -u root -p${{ secrets.WESQL_ROOT_PASSWORD }}
           EOF
           
-          aws s3 cp connection.properties s3://${{ secrets.WESQL_OBJECTSTORE_BUCKET }}/connection.properties
-          echo "Connection properties written to s3://${{ secrets.WESQL_OBJECTSTORE_BUCKET }}/connection.properties"
+          aws s3 cp connection_info.txt s3://${{ secrets.WESQL_OBJECTSTORE_BUCKET }}/connection_info.txt
+          echo "Connection properties written to s3://${{ secrets.WESQL_OBJECTSTORE_BUCKET }}/connection_info.txt"
 
       - name: Keep session running
         run: |
