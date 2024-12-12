@@ -103,7 +103,6 @@ jobs:
           mysql_cli=mysql -h $HOST -P $PORT -u root -p${{ secrets.WESQL_ROOT_PASSWORD }}
           EOF
           
-          # 上传到S3
           aws s3 cp connection.properties s3://${{ secrets.WESQL_OBJECTSTORE_BUCKET }}/connection.properties
           echo "Connection properties written to s3://${{ secrets.WESQL_OBJECTSTORE_BUCKET }}/connection.properties"
 
