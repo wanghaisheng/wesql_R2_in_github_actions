@@ -93,13 +93,19 @@ jobs:
           echo "HOST=$HOST" >> $GITHUB_ENV
           echo "PORT=$PORT" >> $GITHUB_ENV
 
-      - name: Write DSN to S3
+      - name: Write Connection Info to S3
         run: |
-          # Use the HOST and PORT from environment variables
-          DSN="root:${{ secrets.WESQL_ROOT_PASSWORD }}@tcp($HOST:$PORT)"
-          echo "$DSN" > dsn.txt
-          aws s3 cp dsn.txt s3://${{ secrets.WESQL_OBJECTSTORE_BUCKET }}/dsn.txt
-          echo "DSN written to s3://${{ secrets.WESQL_OBJECTSTORE_BUCKET }}/dsn.txt"
+          cat << EOF > connection.properties
+          host=$HOST
+          port=$PORT
+          username=root
+          password=${{ secrets.WESQL_ROOT_PASSWORD }}
+          mysql_cli=mysql -h $HOST -P $PORT -u root -p${{ secrets.WESQL_ROOT_PASSWORD }}
+          EOF
+          
+          # 上传到S3
+          aws s3 cp connection.properties s3://${{ secrets.WESQL_OBJECTSTORE_BUCKET }}/connection.properties
+          echo "Connection properties written to s3://${{ secrets.WESQL_OBJECTSTORE_BUCKET }}/connection.properties"
 
       - name: Keep session running
         run: |
