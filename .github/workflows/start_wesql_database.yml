@@ -1,4 +1,4 @@
-name: Start WeSQL Cluster
+name: Start WeSQL Database
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     - cron: "0 */4 * * *"
 
 concurrency:
-  group: format('{0}-{1}', ${{ github.ref }}, 'Cluster (start_wesql_cluster)')
+  group: start_wesql_database
   cancel-in-progress: true
 
 jobs:
@@ -86,8 +86,7 @@ jobs:
           echo "MySQL Public Access:"
           echo "Host: $HOST"
           echo "Port: $PORT"
-          echo "Connect: mysql -h $HOST -P $PORT -u root -p${{ secrets.WESQL_ROOT_PASSWORD }}"
-          echo "Password: ${{ secrets.WESQL_ROOT_PASSWORD }}"
+          echo "Connect: mysql -h $HOST -P $PORT -u root -p"
 
           # Export HOST and PORT for the next step
           echo "HOST=$HOST" >> $GITHUB_ENV
