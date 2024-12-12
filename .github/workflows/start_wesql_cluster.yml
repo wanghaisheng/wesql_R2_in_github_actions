@@ -44,58 +44,62 @@ jobs:
             branch_objectstore_id='main'" \
             -v ~/wesql-local-dir:/data/mysql \
             -e WESQL_CLUSTER_MEMBER='127.0.0.1:13306' \
-            -e MYSQL_ROOT_PASSWORD=passwd \
+            -e MYSQL_ROOT_PASSWORD=${{ secrets.WESQL_ROOT_PASSWORD }} \
             -e WESQL_OBJECTSTORE_ACCESS_KEY=${WESQL_OBJECTSTORE_ACCESS_KEY} \
             -e WESQL_OBJECTSTORE_SECRET_KEY=${WESQL_OBJECTSTORE_SECRET_KEY} \
             apecloud/wesql-server:8.0.35-0.1.0_beta3.38
 
-      - name: Wait for MySQL ports
+      - name: Wait for MySQL port
         run: |
-          timeout=300  # 5 minutes timeout
-          start_time=$(date +%s)
-          while ! nc -z localhost 3306; do
-            current_time=$(date +%s)
-            elapsed=$((current_time - start_time))
-            if [ $elapsed -ge $timeout ]; then
-              echo "Timeout waiting for MySQL port 3306"
-              exit 1
+          for i in {1..60}; do
+            if nc -z localhost 3306; then
+              echo "MySQL port 3306 is ready!"
+              exit 0
             fi
-            echo "Port 3306 not ready. Retrying in 5 seconds..."
+            echo "Waiting for MySQL port 3306..."
             sleep 5
           done
-          echo "MySQL port 3306 is ready!"
+          echo "Timeout waiting for MySQL port 3306"
+          exit 1
 
-      - name: Setup SSH tunnel via serveo
+      - name: Start and parse Serveo tunnel
         run: |
-          # 使用 serveo 将本地 3306 随机映射到外网
-          # -R 0:localhost:3306 表示在 serveo 上随机分配端口对外服务
+          # Start Serveo SSH tunnel for MySQL (port 3306)
           nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3306 serveo.net > serveo.log 2>&1 &
           sleep 5
-          echo "Serveo log output:"
-          cat serveo.log || true
 
-      - name: Print Serveo Tunnel
-        run: |
+          # Parse the tunnel information
           TUNNEL_LINE=$(grep 'Forwarding TCP' serveo.log || true)
           if [ -z "$TUNNEL_LINE" ]; then
             echo "No forwarding line found in serveo.log"
             exit 1
           fi
-          echo "$TUNNEL_LINE"
+
           HOST="serveo.net"
-          # 去除可能的回车和末尾空白后提取端口
           PORT=$(echo "$TUNNEL_LINE" | tr -d '\r' | sed 's/[[:space:]]*$//' | grep -oE '[0-9]+$' || true)
+
           if [ -z "$PORT" ]; then
-            echo "No port found in TUNNEL_LINE"
-            echo "Debug line (od):"
-            echo "$TUNNEL_LINE" | od -c
+            echo "No port found in the forwarding line"
             exit 1
           fi
+
           echo "MySQL Public Access:"
           echo "Host: $HOST"
           echo "Port: $PORT"
-          echo "Connect: mysql -h $HOST -P $PORT -u root -ppasswd"
-          echo "Password: passwd"
+          echo "Connect: mysql -h $HOST -P $PORT -u root -p${{ secrets.WESQL_ROOT_PASSWORD }}"
+          echo "Password: ${{ secrets.WESQL_ROOT_PASSWORD }}"
+
+          # Export HOST and PORT for the next step
+          echo "HOST=$HOST" >> $GITHUB_ENV
+          echo "PORT=$PORT" >> $GITHUB_ENV
+
+      - name: Write DSN to S3
+        run: |
+          # Use the HOST and PORT from environment variables
+          DSN="mysql://root:${{ secrets.WESQL_ROOT_PASSWORD }}@$HOST:$PORT"
+          echo "$DSN" > dsn.txt
+          aws s3 cp dsn.txt s3://${{ secrets.WESQL_OBJECTSTORE_BUCKET }}/dsn.txt
+          echo "DSN written to s3://${{ secrets.WESQL_OBJECTSTORE_BUCKET }}/dsn.txt"
 
       - name: Keep session running
         run: |
