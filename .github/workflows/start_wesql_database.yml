@@ -1,10 +1,7 @@
 name: Start WeSQL Database
 
 on:
-  push:
   workflow_dispatch:
-#  schedule:
-#    - cron: "0 */4 * * *"
 
 concurrency:
   group: start_wesql_database
