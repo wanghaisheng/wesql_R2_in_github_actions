@@ -1,1 +1,3 @@
-# wesql_in_github_actions
+# Run WeSQL Database In Github Actions
+
+

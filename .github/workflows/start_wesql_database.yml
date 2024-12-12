@@ -107,5 +107,8 @@ jobs:
 
       - name: Keep session running
         run: |
-          echo "Press Ctrl+C or cancel the workflow run when done testing."
+          echo "Keep session running"
+          echo "You can review the connection info in the S3 bucket by reading the file connection_info.txt"
+          echo "aws s3 cp s3://wesql-free-test1/connection_info.txt -"
+          
           tail -f /dev/null
