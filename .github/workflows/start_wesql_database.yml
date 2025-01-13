@@ -1,4 +1,4 @@
-name: Start WeSQL Database
+name: Start s3 WeSQL Database
 
 on:
   workflow_dispatch:
