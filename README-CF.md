@@ -1,4 +1,11 @@
-https://dev.to/jacksbridger/how-to-setup-cloudflare-r2-bucket-generate-access-key-4icd
+Open R2.
+
+Select Manage R2 API Tokens on the right top side of the dashboard.
+Select Create API token.
+Select the pencil icon or R2 Token text to edit your API token name.
+Under Permissions, select Read or Edit for your token.
+Select Create API Token.
+Save a copy of your Access Key ID and Secret access key for the next step.
 
 
 Here's the modified workflow with the necessary changes for Cloudflare R2, along with explanations:
