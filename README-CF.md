@@ -1,3 +1,5 @@
+https://dev.to/jacksbridger/how-to-setup-cloudflare-r2-bucket-generate-access-key-4icd
+
 
 Here's the modified workflow with the necessary changes for Cloudflare R2, along with explanations:
 
