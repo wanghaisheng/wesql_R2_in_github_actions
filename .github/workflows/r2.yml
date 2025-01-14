@@ -65,7 +65,7 @@ jobs:
       - name: Start and parse Serveo tunnel
         run: |
           # Start Serveo SSH tunnel for MySQL (port 3306)
-          nohup ssh -o StrictHostKeyChecking=no -R 0:localhost:3306 serveo.net > serveo.log 2>&1 &
+          nohup ssh -v -o StrictHostKeyChecking=no -R 0:localhost:3306 serveo.net > serveo.log 2>&1 &
           sleep 15  # Increase from 5 to 15 seconds
           cat serveo.log  # Print full log for debugging
 
